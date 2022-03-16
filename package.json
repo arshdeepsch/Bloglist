@@ -1,6 +1,7 @@
 {
     "scripts": {
-        "test": "jest --verbose"
+        "test": "jest --verbose",
+        "start": "NODE_ENV=production node index.js"
     },
     "jest":{
         "testEnvironment":"node"
