@@ -111,6 +111,18 @@ describe('api supertests', () => {
         }
         await api.post('/api/blogs').send(newBlog).expect(400)
     })
+    test('deletes first blog properly', async () => {
+      await api.delete('/api/blogs/5a422a851b54a676234d17f7').expect(410)
+    })
+    test.only('updates likes', async () => {
+      const updtLikes = {
+          likes:20
+      }
+      const result = await api.patch('/api/blogs/5a422bc61b54a676234d17fc').send(updtLikes)
+      expect(result.body.likes).toBe(updtLikes.likes)
+    })
+    
+    
 })
 
 describe('dummy test', () => {
