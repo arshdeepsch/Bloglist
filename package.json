@@ -3,7 +3,13 @@
         "test": "jest --verbose",
         "start": "NODE_ENV=production node index.js"
     },
-    "jest":{
-        "testEnvironment":"node"
+    "jest": {
+        "testEnvironment": "node"
+    },
+    "devDependencies": {
+        "superagent": "^7.1.1"
+    },
+    "dependencies": {
+        "supertest": "^6.2.2"
     }
 }

@@ -3,6 +3,11 @@ const totalLikes = require('../utils/list_helper').totalLikes
 const favoriteBlog = require('../utils/list_helper').favoriteBlog
 const mostBlogs = require('../utils/list_helper').mostBlogs
 const mostLikes = require('../utils/list_helper').mostLikes
+const app = require('../app')
+const supertest = require('supertest')
+const api = supertest(app)
+const Blog = require('../models/blog')
+const mongoose = require('mongoose')
 
 const blogs = [{
         _id: "5a422a851b54a676234d17f7",
@@ -54,6 +59,59 @@ const blogs = [{
     }
 ]
 
+
+beforeAll(async () => {
+    await Blog.deleteMany({})
+    const blogsPromises = blogs.map(blog => new Blog(blog).save())
+    const PromiseAll = await Promise.all(blogsPromises)
+    const result = await api.get('/api/blogs')
+    expect(result.body.length).toBe(blogs.length)
+})
+
+describe('api supertests', () => {
+    test('checked fetched blogs are correct', async () => {
+        const fetched = await api.get('/api/blogs')
+        expect(fetched.body.length).toBe(blogs.length)
+    })
+    test('check id exists for all blogs', async () => {
+        const fetched = await api.get('/api/blogs')
+        const blogs = fetched.body
+        expect(blogs.every((blog) => blog.id)).toBeDefined()
+    })
+    test('succesfully create new blog', async () => {
+        const newBlog = {
+            title: "Google",
+            author: "Google Inc.",
+            url: "https://www.google.com/",
+            likes: 0,
+        }
+        const response = await api.post('/api/blogs').send(newBlog).expect(201)
+        expect(response.body.title).toEqual(newBlog.title)
+    })
+    test('likes default to 0', async () => {
+        const newBlog = {
+            title: "Google",
+            author: "Google Inc.",
+            url: "https://www.google.com/"
+        }
+        const response = await api.post('/api/blogs').send(newBlog).expect(201)
+        expect(response.body.likes).toBe(0)
+    })
+    test('title missing returns 400', async () => {
+        const newBlog = {
+            author: "Google Inc.",
+            url: "https://www.google.com/"
+        }
+       await api.post('/api/blogs').send(newBlog).expect(400)
+    })
+    test('url missing returns 400', async () => {
+        const newBlog = {
+            title: "Google",
+            author: "Google Inc.",
+        }
+        await api.post('/api/blogs').send(newBlog).expect(400)
+    })
+})
 
 describe('dummy test', () => {
     test('dummmy test', () => {
@@ -111,7 +169,7 @@ describe('total likes test', () => {
 })
 
 describe('favoriteBlog tests', () => {
-    test('ingle blog', () => {
+    test('single blog', () => {
         const listWithOneBlog = [{
             _id: '5a422aa71b54a676234d17f8',
             title: 'Go To Statement Considered Harmful',
@@ -124,32 +182,7 @@ describe('favoriteBlog tests', () => {
     })
 
     test('multiple blogs ', () => {
-        const Blogs = [{
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 5,
-                __v: 0
-            },
-            {
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 10,
-                __v: 0
-            },
-            {
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 10,
-                __v: 0
-            }
-        ]
-        expect(favoriteBlog(Blogs)).toEqual(Blogs[2])
+        expect(favoriteBlog(blogs)).toEqual(blogs[2])
     })
 
 })
@@ -170,4 +203,8 @@ describe('mostLikes test', () => {
             likes: 17
         })
     })
+})
+
+afterAll(() => {
+    mongoose.connection.close()
 })
