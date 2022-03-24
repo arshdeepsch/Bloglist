@@ -8,61 +8,61 @@ const supertest = require('supertest')
 const api = supertest(app)
 const Blog = require('../models/blog')
 const mongoose = require('mongoose')
+const User = require('../models/user')
 
 const blogs = [{
-        _id: "5a422a851b54a676234d17f7",
-        title: "React patterns",
-        author: "Michael Chan",
-        url: "https://reactpatterns.com/",
-        likes: 7,
-        __v: 0
-    },
-    {
-        _id: "5a422aa71b54a676234d17f8",
-        title: "Go To Statement Considered Harmful",
-        author: "Edsger W. Dijkstra",
-        url: "http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html",
-        likes: 5,
-        __v: 0
-    },
-    {
-        _id: "5a422b3a1b54a676234d17f9",
-        title: "Canonical string reduction",
-        author: "Edsger W. Dijkstra",
-        url: "http://www.cs.utexas.edu/~EWD/transcriptions/EWD08xx/EWD808.html",
-        likes: 12,
-        __v: 0
-    },
-    {
-        _id: "5a422b891b54a676234d17fa",
-        title: "First class tests",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2017/05/05/TestDefinitions.htmll",
-        likes: 10,
-        __v: 0
-    },
-    {
-        _id: "5a422ba71b54a676234d17fb",
-        title: "TDD harms architecture",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
-        likes: 0,
-        __v: 0
-    },
-    {
-        _id: "5a422bc61b54a676234d17fc",
-        title: "Type wars",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-        likes: 2,
-        __v: 0
-    }
+    title: "React patterns",
+    author: "Michael Chan",
+    url: "https://reactpatterns.com/",
+    likes: 7,
+},
+{
+    title: "Go To Statement Considered Harmful",
+    author: "Edsger W. Dijkstra",
+    url: "http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html",
+    likes: 5,
+},
+{
+
+    title: "Canonical string reduction",
+    author: "Edsger W. Dijkstra",
+    url: "http://www.cs.utexas.edu/~EWD/transcriptions/EWD08xx/EWD808.html",
+    likes: 12,
+},
+{
+    title: "First class tests",
+    author: "Robert C. Martin",
+    url: "http://blog.cleancoder.com/uncle-bob/2017/05/05/TestDefinitions.htmll",
+    likes: 10,
+},
+{
+    title: "TDD harms architecture",
+    author: "Robert C. Martin",
+    url: "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
+    likes: 0,
+},
+{
+    title: "Type wars",
+    author: "Robert C. Martin",
+    url: "http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+    likes: 2,
+}
 ]
 
+let auth = ' ';
 
 beforeAll(async () => {
     await Blog.deleteMany({})
-    const blogsPromises = blogs.map(blog => new Blog(blog).save())
+    await User.deleteMany({})
+    const initUser = {
+        username: "test",
+        password: "test"
+    }
+    const resultUser = await api.post('/api/users').send(initUser)
+    const resultLogin = await api.post('/api/login').send(initUser)
+    auth = resultLogin.body.token
+    // const blogsPromises = blogs.map(blog => new Blog(blog).save())
+    const blogsPromises = blogs.map(blog => api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(blog))
     const PromiseAll = await Promise.all(blogsPromises)
     const result = await api.get('/api/blogs')
     expect(result.body.length).toBe(blogs.length)
@@ -85,7 +85,7 @@ describe('api supertests', () => {
             url: "https://www.google.com/",
             likes: 0,
         }
-        const response = await api.post('/api/blogs').send(newBlog).expect(201)
+        const response = await api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(newBlog).expect(201)
         expect(response.body.title).toEqual(newBlog.title)
     })
     test('likes default to 0', async () => {
@@ -94,7 +94,7 @@ describe('api supertests', () => {
             author: "Google Inc.",
             url: "https://www.google.com/"
         }
-        const response = await api.post('/api/blogs').send(newBlog).expect(201)
+        const response = await api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(newBlog).expect(201)
         expect(response.body.likes).toBe(0)
     })
     test('title missing returns 400', async () => {
@@ -102,27 +102,28 @@ describe('api supertests', () => {
             author: "Google Inc.",
             url: "https://www.google.com/"
         }
-       await api.post('/api/blogs').send(newBlog).expect(400)
+        await api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(newBlog).expect(400)
     })
     test('url missing returns 400', async () => {
         const newBlog = {
             title: "Google",
             author: "Google Inc.",
         }
-        await api.post('/api/blogs').send(newBlog).expect(400)
+        await api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(newBlog).expect(400)
     })
     test('deletes first blog properly', async () => {
-      await api.delete('/api/blogs/5a422a851b54a676234d17f7').expect(410)
+        const blog = await api.get('/api/blogs')
+        const id = blog.body[0].id
+        await api.delete(`/api/blogs/${id}`).set('Authorization', `Bearer ${auth}`).expect(410)
     })
-    test.only('updates likes', async () => {
-      const updtLikes = {
-          likes:20
-      }
-      const result = await api.patch('/api/blogs/5a422bc61b54a676234d17fc').send(updtLikes)
-      expect(result.body.likes).toBe(updtLikes.likes)
+    test('updates likes', async () => {
+        const blogs = await api.get('/api/blogs')
+        const updtLikes = {
+            likes: 20
+        }
+        const result = await api.patch(`/api/blogs/${blogs.body[0].id}`).send(updtLikes)
+        expect(result.body.likes).toBe(updtLikes.likes)
     })
-    
-    
 })
 
 describe('dummy test', () => {
@@ -151,29 +152,23 @@ describe('total likes test', () => {
 
     test('bigger blog list calculated summation of likes ', () => {
         const Blogs = [{
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 5,
-                __v: 0
-            },
-            {
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 10,
-                __v: 0
-            },
-            {
-                _id: '5a422aa71b54a676234d17f8',
-                title: 'Go To Statement Considered Harmful',
-                author: 'Edsger W. Dijkstra',
-                url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
-                likes: 10,
-                __v: 0
-            }
+            title: 'Go To Statement Considered Harmful',
+            author: 'Edsger W. Dijkstra',
+            url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
+            likes: 5,
+        },
+        {
+            title: 'Go To Statement Considered Harmful',
+            author: 'Edsger W. Dijkstra',
+            url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
+            likes: 10,
+        },
+        {
+            title: 'Go To Statement Considered Harmful',
+            author: 'Edsger W. Dijkstra',
+            url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
+            likes: 10,
+        }
         ]
         expect(totalLikes(Blogs)).toBe(25)
     })
@@ -183,12 +178,10 @@ describe('total likes test', () => {
 describe('favoriteBlog tests', () => {
     test('single blog', () => {
         const listWithOneBlog = [{
-            _id: '5a422aa71b54a676234d17f8',
             title: 'Go To Statement Considered Harmful',
             author: 'Edsger W. Dijkstra',
             url: 'http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html',
             likes: 5,
-            __v: 0
         }]
         expect(favoriteBlog(listWithOneBlog)).toEqual(listWithOneBlog[0])
     })
@@ -196,7 +189,6 @@ describe('favoriteBlog tests', () => {
     test('multiple blogs ', () => {
         expect(favoriteBlog(blogs)).toEqual(blogs[2])
     })
-
 })
 
 describe('mostBlogs test', () => {

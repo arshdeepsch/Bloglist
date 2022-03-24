@@ -1,28 +1,50 @@
 const blogRouter = require('express').Router()
+require('express-async-errors')
 const Blog = require('../models/blog')
+const User = require('../models/user')
+const jwt = require('jsonwebtoken')
 
-blogRouter.get('/', (req, res, next) => {
-    Blog.find({}).then(blogs => {
-        res.json(blogs)
-    })
+const getToken = req => {
+    const auth = req.get('authorization')
+    if (auth != null && auth.toLowerCase().startsWith('bearer ')) {
+        return auth.substring(7)
+    }
+    return null
+}
+
+blogRouter.get('/', async (req, res, next) => {
+    const result = await Blog.find({}).populate('user', { username: 1, id: 1 })
+    res.json(result)
 })
 
-blogRouter.post('/', (request, response, next) => {
-    const blog = new Blog(request.body)
-    blog
-        .save()
-        .then(result => {
-            response.status(201).json(result)
-        }).catch(
-            error => next(error)
-        )
+blogRouter.post('/', async (request, response, next) => {
+    const user = request.user
+    if (user !== null) {
+        const blog = new Blog({
+            ...request.body,
+            user: user._id
+        })
+        const result = await blog.save()
+        user.blogs = user.blogs.concat(result._id)
+        await user.save()
+        return response.status(201).json(result)
+    }
+    response.status(401).send({ error: "invalid token" })
 })
 
 blogRouter.delete('/:id', async (request, response) => {
-    await Blog.deleteOne({
-        id: request.params.id
-    })
-    response.sendStatus(410)
+    const user = request.user
+    if (user === null) {
+        return response.status(401).send({ error: 'invalid token' })
+    }
+    const blog = await Blog.findById(request.params.id)
+    if (blog.user.toString() === user._id.toString()) {
+        const result = await Blog.deleteOne({
+            _id: blog._id
+        })
+        return response.status(410).end()
+    }
+    response.status(401).send({ error: "invalid token" })
 })
 
 blogRouter.patch('/:id', async (request, response, next) => {
