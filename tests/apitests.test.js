@@ -61,7 +61,6 @@ beforeAll(async () => {
     const resultUser = await api.post('/api/users').send(initUser)
     const resultLogin = await api.post('/api/login').send(initUser)
     auth = resultLogin.body.token
-    // const blogsPromises = blogs.map(blog => new Blog(blog).save())
     const blogsPromises = blogs.map(blog => api.post('/api/blogs').set('Authorization', `Bearer ${auth}`).send(blog))
     const PromiseAll = await Promise.all(blogsPromises)
     const result = await api.get('/api/blogs')
