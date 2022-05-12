@@ -25,9 +25,10 @@ blogRouter.post('/', async (request, response, next) => {
             user: user._id
         })
         const result = await blog.save()
+        const result1 = await blog.populate('user', { blogs: 0 })
         user.blogs = user.blogs.concat(result._id)
         await user.save()
-        return response.status(201).json(result)
+        return response.status(201).json(result1)
     }
     response.status(401).send({ error: "invalid token" })
 })
@@ -42,7 +43,7 @@ blogRouter.delete('/:id', async (request, response) => {
         const result = await Blog.deleteOne({
             _id: blog._id
         })
-        return response.status(410).end()
+        return response.status(200).end()
     }
     response.status(401).send({ error: "invalid token" })
 })
@@ -50,7 +51,7 @@ blogRouter.delete('/:id', async (request, response) => {
 blogRouter.patch('/:id', async (request, response, next) => {
     const result = await Blog.findByIdAndUpdate(request.params.id, request.body, {
         new: true
-    })
+    }).populate('user', { blogs: 0 })
     response.json(result)
 })
 
